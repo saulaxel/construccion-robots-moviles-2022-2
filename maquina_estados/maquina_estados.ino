@@ -7,23 +7,22 @@
  *                                                                      *
  ************************************************************************/
 
-// Macros
+// ######################### Macros #########################
+
+#define motor_tiene_encoders true
+
 #define TAM_ARRAY(arr) (sizeof(arr) / sizeof(*(arr)))
 
-// Definicion de constantes
 #define ADELANTE move_robot(AVANCE, 0.0f)
 #define ATRAS move_robot(-AVANCE, 0.0)
 #define GIRO_IZQ move_robot(0.0, GIRO)
 #define GIRO_DER move_robot(0.0, -GIRO)
 #define ALTO move_robot(0.0,0.0)
 
-enum motors {
-  up,
-  right,
-  down,
-  left,
-  num_motors // Cantidad de motores
-};
+// ######################### Periféricos #########################
+
+// Pines
+
 namespace pin {
   const int motor_enable[] = { 8, 9, 10, 11 };
   const int motor_direction[] = { 40, 41, 42, 43 };
@@ -36,6 +35,37 @@ namespace pin {
   const int ultra_echo[] = { 23, 25, 27 };
 }
 
+// Auxiliares para el motor
+enum Direction {
+  clockwise,
+  anticlockwise,
+};
+
+#ifndef motor_tiene_encoders
+const int ciclo_trabajo = 50;
+const float velocidad_avance = .5;
+const float velocidad_giro = 1;
+#endif // NOT motor_tiene_encoders
+
+enum motor {
+  motor_up,
+  motor_right,
+  motor_down,
+  motor_left,
+  num_motors // Cantidad de motores
+};
+
+// Auxiliares para los encoders del motor
+#ifdef motor_tiene_encoders
+const float diametro_rueda = 3.8; // Medida en centímetros
+const int pulsos_por_revolucion = 12;
+inline float distancia(int pulsos) {
+  float revol = (float)pulsos / pulsos_por_revolucion;
+  float dist = revol * PI * diametro_rueda;
+  return dist;
+}
+#endif // motor_tiene_encoders
+
 // La cantidad que hay de cada tipo de sensor
 const size_t num_ldrs = TAM_ARRAY(pin::ldr);
 const size_t num_infras = TAM_ARRAY(pin::infra);
@@ -45,12 +75,8 @@ const size_t num_ultras = TAM_ARRAY(pin::ultra_trig);
 const float centimetros_por_microsegundo = (1.0f / 29.2f);
 const long umbral_ultra = 15;
 
-// Auxiliares para el motor
-enum Direction {
-  clockwise,
-  anticlockwise,
-};
-int motor_speed = 50;
+
+// ####
 
 // Configuración de los pines de entrada y salida
 void setup() {
@@ -80,20 +106,55 @@ void setup() {
   }
 }
 
-void setMotorDirection(int index, Direction d) {
+void setMotorDirection(int index, Direction d)
+{
   if (d == clockwise) {
     digitalWrite(pin::motor_direction[index], HIGH);
-    //digitalWrite(pin::motor_direction[index], LOW);
   } else {
-    //digitalWrite(dirPin1, LOW);
-    //digitalWrite(dirPin2, HIGH);
+    digitalWrite(pin::motor_direction[index], LOW);
   }
 }
 
-void setMotorSpeed(int motor, int motorSpeed) {
-  //analogWrite(speedPin, motorSpeed);
+void setMotorSpeed(int index, int motorSpeed)
+{
+  analogWrite(pin::motor_enable[index], motorSpeed);
 }
 
+#ifndef motor_tiene_encoders
+void avance_robot(float distancia)
+{
+  setMotorSpeed(motor_left, ciclo_trabajo);
+  setMotorSpeed(motor_right, ciclo_trabajo);
+  if (distancia > 0) {
+    setMotorDirection(motor_left, clockwise);
+    setMotorDirection(motor_right, anticlockwise);
+  } else {
+    setMotorDirection(motor_left, anticlockwise);
+    setMotorDirection(motor_right, clockwise);
+  }
+  delay(distancia * velocidad_avance);
+  digitalWrite(motor_left, LOW);
+  digitalWrite(motor_right, LOW);
+}
+
+void giro_robot(float angulo)
+{
+  for (size_t m = 0; m < num_motors; ++m) {
+    setMotorSpeed(m, ciclo_trabajo);
+    if (angulo > 0) {
+      setMotorDirection(m, clockwise);
+    } else {
+      setMotorDirection(m, anticlockwise);
+    }
+  }
+  
+  delay(angulo * velocidad_giro);
+
+  for (size_t m = 0; m < num_motors; ++m) {
+    digitalWrite(m, LOW);
+  }  
+}
+#else // SI motor_tiene_encoders
 void avance_robot(float distancia)
 {
   
@@ -103,36 +164,35 @@ void giro_robot(float angulo)
 {
   
 }
+#endif // motor_tiene_encoders
 
-// Esta función hace que el robot primero gire un angulo y después avance una distancia
-void move_robot(float distancia, float angulo)
-{
-  giro_robot(angulo);
-  avance_robot(distancia);
-  delay(1000);
+long leer_ultra(int index) {  
+  long tiempo_ir_regresar_us, tiempo_ida_us;
+  long distancia_cm = leer_ultra(index);
+  
+  // Indicar al sensor ultrasónico que envíe una onda de sonido
+  digitalWrite(pin::ultra_trig[index], LOW);
+  delayMicroseconds(4);
+  digitalWrite(pin::ultra_trig[index], HIGH);
+  delayMicroseconds(10);
+  digitalWrite(pin::ultra_trig[index], LOW);  
+
+  // Leemos de Echo el tiempo que tarda la onda en regresar
+  tiempo_ir_regresar_us = pulseIn(pin::ultra_echo[index], HIGH);
+  tiempo_ida_us = tiempo_ir_regresar_us / 2;
+
+  distancia_cm = tiempo_ida_us * centimetros_por_microsegundo;
+
+  return distancia_cm;
 }
+
 // Esta función lee el valor de un sensor, indicando su tipo y numero, y regresa su valor
 float shs(String sensor, int num_sensor)
 {
   float x=1.0;
 
   if (sensor == "ultra") {
-    long tiempo_ir_regresar_us, tiempo_ida_us;
-    long distancia_cm;
-    
-    // Indicar al sensor ultrasónico que envíe una onda de sonido
-    digitalWrite(pin::ultra_trig[num_sensor], LOW);
-    delayMicroseconds(4);
-    digitalWrite(pin::ultra_trig[num_sensor], HIGH);
-    delayMicroseconds(10);
-    digitalWrite(pin::ultra_trig[num_sensor], LOW);  
-
-    // Leemos de Echo el tiempo que tarda la onda en regresar
-    tiempo_ir_regresar_us = pulseIn(pin::ultra_echo[num_sensor], HIGH);
-    tiempo_ida_us = tiempo_ir_regresar_us / 2;
-
-    distancia_cm = tiempo_ida_us * centimetros_por_microsegundo;
-
+    long distancia_cm = leer_ultra(num_sensor);
     if (distancia_cm < umbral_ultra) {
       x = 0;
     }
@@ -141,19 +201,20 @@ float shs(String sensor, int num_sensor)
   return(x);
 }
 // Algoritmo de evasión de obstáculos
-void loop(){
+void loop()
+{
   int estado = 0;
   float Si, Sm, Sd;
-  float AVANCE=.1;
-  float GIRO= 0.7854;
+  float AVANCE =.1;
+  float GIRO = 0.7854;
   // Estado inicial
   estado = 0;
   // Loop infinito
-  while(1){
+  while (1){
     // Se leen los sensores
     Si = shs("ultra", 0);
     Sm = shs("ultra", 1);
-    Sd = shs("contact", 2);
+    Sd = shs("ultra", 2);
     
     Serial.print("Estado Presente: ");
     Serial.println(estado);
