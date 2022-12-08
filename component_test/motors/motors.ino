@@ -7,6 +7,7 @@
 const int velocidad = 100;
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
   for (size_t i = 0; i < 4; ++i) {
     pinMode(pin::motor_enable[i], OUTPUT);
     pinMode(pin::motor_direction[i], OUTPUT);
@@ -26,7 +27,7 @@ void girar_par_de_ruedas(int rueda1, int rueda2, int dir1, int dir2) {
 
 void loop() {
   #ifdef PROBAR_AVANCE
-  
+  digitalWrite(LED_BUILTIN, LOW);
   // Primer par de ruedas, un sentido
   girar_par_de_ruedas(1, 3, HIGH, LOW);
   delay(5000);
@@ -46,6 +47,7 @@ void loop() {
   #endif
 
   #ifdef PROBAR_GIRO
+  digitalWrite(LED_BUILTIN, HIGH);
   // Primer par de ruedas, un sentido
   girar_par_de_ruedas(1, 3, HIGH, HIGH);
   delay(5000);
