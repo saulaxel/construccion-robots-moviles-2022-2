@@ -22,13 +22,9 @@
 // ######################### Periféricos #########################
 
 // Pines
-#include <DefinicionPines.h>
+#include <DefinicionPines.hpp>
+#include <GiroMotores.hpp>
 
-// Auxiliares para el motor
-enum Direction {
-  clockwise,
-  anticlockwise,
-};
 
 #ifndef motor_tiene_encoders
 const int ciclo_trabajo = 50;
@@ -136,35 +132,35 @@ void giro_robot(float angulo)
       setMotorDirection(m, anticlockwise);
     }
   }
-  
+
   delay(angulo * velocidad_giro);
 
   for (size_t m = 0; m < num_motors; ++m) {
     digitalWrite(m, LOW);
-  }  
+  }
 }
 #else // SI motor_tiene_encoders
 void avance_robot(float distancia)
 {
-  
+
 }
 
 void giro_robot(float angulo)
 {
-  
+
 }
 #endif // motor_tiene_encoders
 
-long leer_ultra(int index) {  
+long leer_ultra(int index) {
   long tiempo_ir_regresar_us, tiempo_ida_us;
   long distancia_cm = leer_ultra(index);
-  
+
   // Indicar al sensor ultrasónico que envíe una onda de sonido
   digitalWrite(pin::ultra_trig[index], LOW);
   delayMicroseconds(4);
   digitalWrite(pin::ultra_trig[index], HIGH);
   delayMicroseconds(10);
-  digitalWrite(pin::ultra_trig[index], LOW);  
+  digitalWrite(pin::ultra_trig[index], LOW);
 
   // Leemos de Echo el tiempo que tarda la onda en regresar
   tiempo_ir_regresar_us = pulseIn(pin::ultra_echo[index], HIGH);
@@ -186,7 +182,7 @@ float shs(String sensor, int num_sensor)
       x = 0;
     }
   }
-  
+
   return(x);
 }
 
@@ -211,7 +207,7 @@ void loop()
     Si = shs("ultra", 0);
     Sm = shs("ultra", 1);
     Sd = shs("ultra", 2);
-    
+
     Serial.print("Estado Presente: ");
     Serial.println(estado);
     Serial.print("Si: ");
